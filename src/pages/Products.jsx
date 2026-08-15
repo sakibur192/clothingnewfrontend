@@ -81,6 +81,9 @@ export default function Products() {
                     <Link className="btn btn-secondary btn-sm" to={`/products/${p.id}/edit`}>
                       Edit
                     </Link>{" "}
+                    <Link className="btn btn-secondary btn-sm" to={`/products/${p.id}/variants`}>
+                      Variants ({p.variants.length})
+                    </Link>{" "}
                     <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>
                       Delete
                     </button>

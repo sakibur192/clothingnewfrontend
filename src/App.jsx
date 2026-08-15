@@ -20,6 +20,7 @@ import Dashboard from "./pages/Dashboard";
 import Categories from "./pages/Categories";
 import Products from "./pages/Products";
 import ProductForm from "./pages/ProductForm";
+import VariantManager from "./pages/VariantManager";
 import Orders from "./pages/Orders";
 import OrderForm from "./pages/OrderForm";
 import OrderDetail from "./pages/OrderDetail";
@@ -120,6 +121,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ProductForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/:id/variants"
+            element={
+              <ProtectedRoute>
+                <VariantManager />
               </ProtectedRoute>
             }
           />

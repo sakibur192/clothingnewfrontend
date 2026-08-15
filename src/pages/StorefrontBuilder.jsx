@@ -24,6 +24,7 @@ import {
   setStorefrontDomain,
   verifyStorefrontDomain,
   removeStorefrontDomain,
+  getCategories,
 } from "../api/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -33,10 +34,15 @@ const SECTION_TYPES = [
   { value: "banner", label: "Promo Banner" },
   { value: "trust_badges", label: "Trust Badges" },
   { value: "category_grid", label: "Category Grid" },
-  { value: "product_grid", label: "Product Grid" },
+  { value: "category_icon_grid", label: "Category Icon Grid (Find Your Things)" },
+  { value: "product_grid", label: "Product Grid / Carousel" },
   { value: "flash_sale", label: "Flash Sale (with countdown)" },
   { value: "promo_grid", label: "Promo Banner Grid" },
   { value: "instagram_gallery", label: "Instagram / Shop the Look" },
+  { value: "brand_story", label: "Brand Story" },
+  { value: "partner_logos", label: "Partner / Client Logos" },
+  { value: "app_promo_bar", label: "App Promo Bar" },
+  { value: "coupon_strip", label: "Voucher / Coupon Strip" },
   { value: "testimonials", label: "Testimonials" },
   { value: "newsletter", label: "Newsletter Signup" },
 ];
@@ -52,10 +58,15 @@ function defaultSettingsForType(type) {
   if (type === "hero_slider") return { autoplay_seconds: 5, slides: [emptySlide()] };
   if (type === "trust_badges") return { badges: [emptyBadge(), emptyBadge(), emptyBadge(), emptyBadge()] };
   if (type === "category_grid") return { heading: "Shop by Category", columns: 4 };
-  if (type === "product_grid") return { heading: "Featured Products", collection: "newest", limit: 8 };
+  if (type === "category_icon_grid") return { heading: "Find Your Things", subheading: "Shop our product range" };
+  if (type === "product_grid") return { heading: "Featured Products", collection: "newest", limit: 8, layout: "grid", category_id: "" };
   if (type === "flash_sale") return { heading: "Flash Sale", end_time: "", collection: "bestsellers", limit: 8 };
   if (type === "promo_grid") return { banners: [emptyBanner(), emptyBanner()] };
   if (type === "instagram_gallery") return { heading: "Shop the Look", images: [] };
+  if (type === "brand_story") return { heading: "Our Story", tagline: "", body_text: "" };
+  if (type === "partner_logos") return { heading: "Work with us Today", subtext: "", logos: [] };
+  if (type === "app_promo_bar") return { heading: "GET 5% OFF ON APP", playstore_url: "", appstore_url: "" };
+  if (type === "coupon_strip") return { heading: "Collect Vouchers" };
   if (type === "testimonials") return { heading: "What Our Customers Say" };
   if (type === "newsletter") return { heading: "Subscribe", subheading: "" };
   return {};
@@ -68,6 +79,7 @@ export default function StorefrontBuilder() {
   const [templates, setTemplates] = useState([]);
   const [settings, setSettings] = useState(null);
   const [sections, setSections] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState("");
@@ -85,6 +97,7 @@ export default function StorefrontBuilder() {
       .then((data) => setSections(data.page.sections || []))
       .catch(() => setSections([]));
     getDomainStatus().then(setDomainStatus).catch(() => {});
+    getCategories().then((data) => setCategories(data.categories)).catch(() => {});
   }
 
   useEffect(() => {
@@ -440,6 +453,24 @@ export default function StorefrontBuilder() {
                     <label>How Many</label>
                     <input type="number" value={section.settings.limit || 8} onChange={(e) => updateSectionSetting(index, "limit", Number(e.target.value))} />
                   </div>
+                  {section.type === "product_grid" && (
+                    <>
+                      <div className="form-group">
+                        <label>Layout</label>
+                        <select value={section.settings.layout || "grid"} onChange={(e) => updateSectionSetting(index, "layout", e.target.value)}>
+                          <option value="grid">Static Grid</option>
+                          <option value="carousel">Scrolling Carousel (with View More)</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Limit to Category (optional)</label>
+                        <select value={section.settings.category_id || ""} onChange={(e) => updateSectionSetting(index, "category_id", e.target.value)}>
+                          <option value="">All categories</option>
+                          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
               {section.type === "flash_sale" && (
@@ -450,6 +481,69 @@ export default function StorefrontBuilder() {
                     value={section.settings.end_time ? section.settings.end_time.slice(0, 16) : ""}
                     onChange={(e) => updateSectionSetting(index, "end_time", new Date(e.target.value).toISOString())}
                   />
+                </div>
+              )}
+
+              {/* BRAND STORY */}
+              {section.type === "brand_story" && (
+                <div>
+                  <div className="form-group">
+                    <label>Tagline (optional, shown above the body text)</label>
+                    <input value={section.settings.tagline || ""} onChange={(e) => updateSectionSetting(index, "tagline", e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label>Body Text</label>
+                    <textarea rows={4} value={section.settings.body_text || ""} onChange={(e) => updateSectionSetting(index, "body_text", e.target.value)} />
+                  </div>
+                </div>
+              )}
+
+              {/* APP PROMO BAR */}
+              {section.type === "app_promo_bar" && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Google Play URL (optional)</label>
+                    <input value={section.settings.playstore_url || ""} onChange={(e) => updateSectionSetting(index, "playstore_url", e.target.value)} placeholder="https://play.google.com/..." />
+                  </div>
+                  <div className="form-group">
+                    <label>App Store URL (optional)</label>
+                    <input value={section.settings.appstore_url || ""} onChange={(e) => updateSectionSetting(index, "appstore_url", e.target.value)} placeholder="https://apps.apple.com/..." />
+                  </div>
+                </div>
+              )}
+
+              {/* PARTNER LOGOS - editable logo URL list */}
+              {section.type === "partner_logos" && (
+                <div>
+                  <div className="form-group">
+                    <label>Subtext (optional)</label>
+                    <input value={section.settings.subtext || ""} onChange={(e) => updateSectionSetting(index, "subtext", e.target.value)} />
+                  </div>
+                  {(section.settings.logos || []).map((url, li) => (
+                    <div key={li} className="form-row" style={{ marginBottom: 8 }}>
+                      <input
+                        value={url}
+                        onChange={(e) => {
+                          const next = [...section.settings.logos];
+                          next[li] = e.target.value;
+                          updateSectionSetting(index, "logos", next);
+                        }}
+                        placeholder="https://... logo image URL"
+                      />
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => updateSectionSetting(index, "logos", section.settings.logos.filter((_, x) => x !== li))}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => updateSectionSetting(index, "logos", [...(section.settings.logos || []), ""])}
+                  >
+                    + Add Logo
+                  </button>
                 </div>
               )}
 

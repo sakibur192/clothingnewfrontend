@@ -6,7 +6,7 @@
 // ============================================================
 
 // Change this if your backend runs on a different port/host.
-const BASE_URL = "http://ygk4so4wkoos80ww0w0ws484.76.13.223.236.sslip.io";
+const BASE_URL = "http://localhost:5000";
 
 function getToken() {
   return localStorage.getItem("token");
@@ -222,6 +222,42 @@ export function getWarehouses() {
 
 export function createWarehouse(payload) {
   return request("/inventory/warehouses", { method: "POST", body: JSON.stringify(payload) });
+}
+
+// ---------------- UPLOADS ----------------
+export async function uploadImages(files) {
+  const token = localStorage.getItem("token");
+  const formData = new FormData();
+  for (const file of files) formData.append("images", file);
+
+  const response = await fetch(`${BASE_URL}/uploads/images`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  const data = await response.json();
+  if (!response.ok || data.success === false) {
+    throw new Error(data.message || "Upload failed");
+  }
+  return data;
+}
+
+// ---------------- ATTRIBUTE OPTIONS (color/size presets) ----------------
+export function getAttributeOptions(type) {
+  return request(`/attributes/${type}`);
+}
+
+// ---------------- VARIANTS ----------------
+export function addProductVariant(productId, payload) {
+  return request(`/products/${productId}/variants`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function updateProductVariant(variantId, payload) {
+  return request(`/products/variants/${variantId}`, { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export function deleteProductVariant(variantId) {
+  return request(`/products/variants/${variantId}`, { method: "DELETE" });
 }
 
 export function transferStock(payload) {

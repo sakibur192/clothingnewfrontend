@@ -1,31 +1,17 @@
 // ============================================================
 // PRODUCT FORM PAGE (Add / Edit)
 // ============================================================
-// Add mode: create the product with a list of variants in one
-// request (POST /products).
-// Edit mode: only updates the product's own fields - variants
-// are shown read-only here in Phase 1 (managing individual
-// variants after creation can be added in a later phase).
+// Product creation is now ONLY storefront/master data - name,
+// description, category, brand, fabric, etc. NO color/size/
+// price/stock here anymore - that all happens afterward in
+// Inventory → Manage Variants, which is where photos, pricing,
+// and stock actually live. This mirrors how a real clothing ERP
+// separates "what is this product" from "what do we have of it."
 // ============================================================
 
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import {
-  getCategories,
-  createProduct,
-  updateProduct,
-  getProductById,
-} from "../api/api";
-
-const emptyVariant = () => ({
-  color: "",
-  size: "",
-  sku: "",
-  regular_price: "",
-  sale_price: "",
-  cost_price: "",
-  stock_quantity: "",
-});
+import { useNavigate, useParams, Link } from "react-router-dom";
+import { getCategories, createProduct, updateProduct, getProductById } from "../api/api";
 
 export default function ProductForm() {
   const { id } = useParams();
@@ -35,10 +21,12 @@ export default function ProductForm() {
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [existingVariants, setExistingVariants] = useState([]);
 
   const [form, setForm] = useState({
     name: "",
     category_id: "",
+    short_description: "",
     description: "",
     brand: "",
     gender: "unisex",
@@ -47,9 +35,6 @@ export default function ProductForm() {
     pattern: "",
     fit: "",
   });
-
-  const [variants, setVariants] = useState([emptyVariant()]);
-  const [existingVariants, setExistingVariants] = useState([]);
 
   useEffect(() => {
     getCategories().then((data) => setCategories(data.categories));
@@ -60,6 +45,7 @@ export default function ProductForm() {
         setForm({
           name: p.name || "",
           category_id: p.category_id || "",
+          short_description: p.short_description || "",
           description: p.description || "",
           brand: p.brand || "",
           gender: p.gender || "unisex",
@@ -77,20 +63,6 @@ export default function ProductForm() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function updateVariant(index, field, value) {
-    setVariants((prev) =>
-      prev.map((v, i) => (i === index ? { ...v, [field]: value } : v))
-    );
-  }
-
-  function addVariantRow() {
-    setVariants((prev) => [...prev, emptyVariant()]);
-  }
-
-  function removeVariantRow(index) {
-    setVariants((prev) => prev.filter((_, i) => i !== index));
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -99,20 +71,13 @@ export default function ProductForm() {
     try {
       if (isEdit) {
         await updateProduct(id, form);
+        navigate("/products");
       } else {
-        const payload = {
-          ...form,
-          variants: variants.map((v) => ({
-            ...v,
-            regular_price: Number(v.regular_price) || 0,
-            sale_price: v.sale_price ? Number(v.sale_price) : null,
-            cost_price: Number(v.cost_price) || 0,
-            stock_quantity: Number(v.stock_quantity) || 0,
-          })),
-        };
-        await createProduct(payload);
+        const result = await createProduct(form);
+        // straight into variant management for this brand-new product -
+        // that's where color/size/price/stock/photos actually get added
+        navigate(`/products/${result.product.id}/variants`);
       }
-      navigate("/products");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -145,15 +110,10 @@ export default function ProductForm() {
           <div className="form-row">
             <div className="form-group">
               <label>Category</label>
-              <select
-                value={form.category_id}
-                onChange={(e) => updateField("category_id", e.target.value)}
-              >
+              <select value={form.category_id} onChange={(e) => updateField("category_id", e.target.value)}>
                 <option value="">-- Select category --</option>
                 {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>
@@ -164,10 +124,21 @@ export default function ProductForm() {
           </div>
 
           <div className="form-group">
-            <label>Description</label>
+            <label>Short Description <span className="muted">(teaser shown on storefront product cards)</span></label>
+            <input
+              value={form.short_description}
+              onChange={(e) => updateField("short_description", e.target.value)}
+              placeholder="e.g. Soft cotton, everyday essential"
+              maxLength={150}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Full Description <span className="muted">(shown on the storefront product page)</span></label>
             <textarea
               value={form.description}
               onChange={(e) => updateField("description", e.target.value)}
+              rows={5}
             />
           </div>
 
@@ -183,157 +154,46 @@ export default function ProductForm() {
             </div>
             <div className="form-group">
               <label>Fit</label>
-              <input
-                value={form.fit}
-                onChange={(e) => updateField("fit", e.target.value)}
-                placeholder="e.g. Oversized, Slim"
-              />
+              <input value={form.fit} onChange={(e) => updateField("fit", e.target.value)} placeholder="e.g. Oversized, Slim" />
             </div>
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label>Fabric</label>
-              <input
-                value={form.fabric}
-                onChange={(e) => updateField("fabric", e.target.value)}
-                placeholder="e.g. Cotton"
-              />
+              <input value={form.fabric} onChange={(e) => updateField("fabric", e.target.value)} placeholder="e.g. Cotton" />
             </div>
             <div className="form-group">
               <label>Material</label>
-              <input
-                value={form.material}
-                onChange={(e) => updateField("material", e.target.value)}
-                placeholder="e.g. 100% Cotton"
-              />
+              <input value={form.material} onChange={(e) => updateField("material", e.target.value)} placeholder="e.g. 100% Cotton" />
             </div>
             <div className="form-group">
               <label>Pattern</label>
-              <input
-                value={form.pattern}
-                onChange={(e) => updateField("pattern", e.target.value)}
-                placeholder="e.g. Solid, Printed"
-              />
+              <input value={form.pattern} onChange={(e) => updateField("pattern", e.target.value)} placeholder="e.g. Solid, Printed" />
             </div>
           </div>
         </div>
 
-        {!isEdit && (
+        {isEdit && (
           <div className="card">
-            <h3>Variants (Color / Size / Price / Stock)</h3>
-            <p className="muted">Add one row per color+size combination.</p>
-
-            {variants.map((v, index) => (
-              <div className="variant-row" key={index}>
-                <div className="form-group">
-                  <label>Color</label>
-                  <input
-                    value={v.color}
-                    onChange={(e) => updateVariant(index, "color", e.target.value)}
-                    placeholder="Black"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Size</label>
-                  <input
-                    value={v.size}
-                    onChange={(e) => updateVariant(index, "size", e.target.value)}
-                    placeholder="M"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>SKU</label>
-                  <input
-                    value={v.sku}
-                    onChange={(e) => updateVariant(index, "sku", e.target.value)}
-                    placeholder="OT-BLK-M"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Regular Price</label>
-                  <input
-                    type="number"
-                    value={v.regular_price}
-                    onChange={(e) => updateVariant(index, "regular_price", e.target.value)}
-                    placeholder="999"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Sale Price</label>
-                  <input
-                    type="number"
-                    value={v.sale_price}
-                    onChange={(e) => updateVariant(index, "sale_price", e.target.value)}
-                    placeholder="899"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Stock Qty</label>
-                  <input
-                    type="number"
-                    value={v.stock_quantity}
-                    onChange={(e) => updateVariant(index, "stock_quantity", e.target.value)}
-                    placeholder="20"
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-danger btn-sm"
-                  onClick={() => removeVariantRow(index)}
-                  disabled={variants.length === 1}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-
-            <button type="button" className="btn btn-secondary btn-sm" onClick={addVariantRow}>
-              + Add Another Variant
-            </button>
-          </div>
-        )}
-
-        {isEdit && existingVariants.length > 0 && (
-          <div className="card">
-            <h3>Existing Variants</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>SKU</th>
-                  <th>Color</th>
-                  <th>Size</th>
-                  <th>Price</th>
-                  <th>Stock</th>
-                </tr>
-              </thead>
-              <tbody>
-                {existingVariants.map((v) => (
-                  <tr key={v.id}>
-                    <td>{v.sku}</td>
-                    <td>{v.color}</td>
-                    <td>{v.size}</td>
-                    <td>৳{v.sale_price || v.regular_price}</td>
-                    <td>{v.stock_quantity}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="muted" style={{ marginTop: 10 }}>
-              Manage stock quantity from the Inventory page.
+            <div className="page-header" style={{ marginBottom: 10 }}>
+              <h3 style={{ margin: 0 }}>Variants</h3>
+              <Link className="btn btn-secondary btn-sm" to={`/products/${id}/variants`}>
+                Manage Variants ({existingVariants.length})
+              </Link>
+            </div>
+            <p className="muted">
+              Colors, sizes, prices, stock and photos are managed separately — this keeps product info
+              (for the storefront) and inventory (what you actually have) cleanly split.
             </p>
           </div>
         )}
 
         <div style={{ marginTop: 16 }}>
           <button className="btn" type="submit" disabled={saving}>
-            {saving ? "Saving..." : isEdit ? "Save Changes" : "Create Product"}
+            {saving ? "Saving..." : isEdit ? "Save Changes" : "Create Product & Add Variants"}
           </button>{" "}
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => navigate("/products")}
-          >
+          <button type="button" className="btn btn-secondary" onClick={() => navigate("/products")}>
             Cancel
           </button>
         </div>
