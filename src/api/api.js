@@ -6,7 +6,7 @@
 // ============================================================
 
 // Change this if your backend runs on a different port/host.
-const BASE_URL = "http://ygk4so4wkoos80ww0w0ws484.76.13.223.236.sslip.io";
+const BASE_URL = "https://clothingnewbackend.onrender.com";
 
 function getToken() {
   return localStorage.getItem("token");
