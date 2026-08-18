@@ -6,7 +6,7 @@
 // ============================================================
 
 // Change this if your backend runs on a different port/host.
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "https://clothingnewbackend.onrender.com";
 
 function getToken() {
   return localStorage.getItem("token");
