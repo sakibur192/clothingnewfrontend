@@ -32,6 +32,7 @@ import Offers from "./pages/Offers";
 import Coupons from "./pages/Coupons";
 import StorefrontBuilder from "./pages/StorefrontBuilder";
 import Reports from "./pages/Reports";
+import CourierSettings from "./pages/CourierSettings";
 
 export default function App() {
   return (
@@ -201,6 +202,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Reports />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/courier-settings"
+            element={
+              <ProtectedRoute>
+                <CourierSettings />
               </ProtectedRoute>
             }
           />

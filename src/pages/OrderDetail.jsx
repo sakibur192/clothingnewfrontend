@@ -4,17 +4,18 @@
 
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getOrderById, chargePayment, bookCourier, updateCourierStatus } from "../api/api";
+import { getOrderById, chargePayment, bookCourier, syncCourierStatus, getCourierCredentials, updateOrderStatus } from "../api/api";
 
-const COURIER_STATUSES = ["pending", "picked_up", "in_transit", "delivered", "returned"];
+const ORDER_STATUSES = ["pending", "confirmed", "packed", "shipped", "delivered", "cancelled", "returned"];
 
 export default function OrderDetail() {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("bkash");
-  const [courierName, setCourierName] = useState("pathao");
   const [busy, setBusy] = useState(false);
+  const [courierConnected, setCourierConnected] = useState(null); // null = still checking
 
   function loadOrder() {
     getOrderById(id)
@@ -24,7 +25,25 @@ export default function OrderDetail() {
 
   useEffect(() => {
     loadOrder();
+    getCourierCredentials()
+      .then((data) => setCourierConnected(data.connected))
+      .catch(() => setCourierConnected(false));
   }, [id]);
+
+  async function handleManualStatusChange(status) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await updateOrderStatus(id, status);
+      if (result.courierWarning) setMessage(result.courierWarning);
+      loadOrder();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleCharge() {
     setBusy(true);
@@ -43,7 +62,7 @@ export default function OrderDetail() {
     setBusy(true);
     setError("");
     try {
-      await bookCourier({ order_id: Number(id), courier_name: courierName });
+      await bookCourier({ order_id: Number(id) });
       loadOrder();
     } catch (err) {
       setError(err.message);
@@ -52,12 +71,16 @@ export default function OrderDetail() {
     }
   }
 
-  async function handleCourierStatusChange(bookingId, status) {
+  async function handleSync(bookingId) {
+    setBusy(true);
+    setError("");
     try {
-      await updateCourierStatus(bookingId, status);
+      await syncCourierStatus(bookingId);
       loadOrder();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -69,6 +92,28 @@ export default function OrderDetail() {
       <div className="page-header">
         <h2>Order {order.order_number}</h2>
         <Link className="btn btn-secondary" to="/orders">Back to Orders</Link>
+      </div>
+
+      {message && <p className="muted">{message}</p>}
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="page-header" style={{ marginBottom: 10 }}>
+          <h3 style={{ margin: 0 }}>Status</h3>
+        </div>
+        <select
+          value={order.status}
+          onChange={(e) => handleManualStatusChange(e.target.value)}
+          disabled={busy}
+          className={`badge badge-${order.status}`}
+          style={{ border: "none", fontWeight: 600, padding: "6px 14px" }}
+        >
+          {ORDER_STATUSES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+          This works whether or not you use a courier service — set it manually anytime.
+        </p>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -150,47 +195,66 @@ export default function OrderDetail() {
       </div>
 
       <div className="card">
-        <h3>Courier</h3>
+        <h3>Courier — Steadfast</h3>
 
-        {order.courierBookings && order.courierBookings.length > 0 ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Courier</th>
-                <th>Courier Order ID</th>
-                <th>COD Amount</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.courierBookings.map((b) => (
-                <tr key={b.id}>
-                  <td className="muted">{b.courier_name}</td>
-                  <td className="muted">{b.courier_order_id}</td>
-                  <td>৳{b.cod_amount}</td>
-                  <td>
-                    <select
-                      value={b.status}
-                      onChange={(e) => handleCourierStatusChange(b.id, e.target.value)}
-                    >
-                      {COURIER_STATUSES.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {courierConnected === null ? (
+          <p className="muted">Checking...</p>
+        ) : !courierConnected ? (
+          <div>
+            <p className="muted">
+              You're not using a courier service right now — that's completely fine. Use the <strong>Status</strong>{" "}
+              dropdown above to move this order through Packed → Shipped → Delivered manually, exactly as before.
+            </p>
+            <p className="muted">
+              Want deliveries booked and tracked automatically instead?{" "}
+              <Link to="/courier-settings">Connect Steadfast</Link> — it only takes a minute, and won't change
+              anything about how existing orders are handled.
+            </p>
+          </div>
+        ) : order.courierBookings && order.courierBookings.length > 0 ? (
+          order.courierBookings.map((b) => (
+            <div key={b.id} style={{ marginBottom: 14 }}>
+              {b.status === "booking_failed" ? (
+                <div>
+                  <p className="error-text">Booking failed: {b.booking_error}</p>
+                  <button className="btn btn-secondary btn-sm" onClick={handleBookCourier} disabled={busy}>
+                    Retry Booking
+                  </button>
+                </div>
+              ) : (
+                <table>
+                  <tbody>
+                    <tr><td>Status</td><td><span className="badge badge-confirmed">{b.status}</span> {b.booked_automatically && <span className="muted">(auto-booked)</span>}</td></tr>
+                    <tr><td>Consignment ID</td><td className="muted">{b.consignment_id}</td></tr>
+                    <tr><td>Tracking Code</td><td className="muted">{b.tracking_code}</td></tr>
+                    <tr>
+                      <td>Tracking Link</td>
+                      <td>
+                        {b.tracking_url && (
+                          <a href={b.tracking_url} target="_blank" rel="noopener noreferrer">{b.tracking_url}</a>
+                        )}
+                      </td>
+                    </tr>
+                    <tr><td>COD Amount</td><td>৳{b.cod_amount}</td></tr>
+                    <tr><td>Last Synced</td><td className="muted">{b.last_synced_at ? new Date(b.last_synced_at).toLocaleString() : "Not synced yet"}</td></tr>
+                  </tbody>
+                </table>
+              )}
+              {b.status !== "booking_failed" && (
+                <button className="btn btn-secondary btn-sm" onClick={() => handleSync(b.id)} disabled={busy} style={{ marginTop: 8 }}>
+                  {busy ? "Checking..." : "Sync Live Status"}
+                </button>
+              )}
+            </div>
+          ))
         ) : (
-          <div style={{ display: "flex", gap: 10 }}>
-            <select value={courierName} onChange={(e) => setCourierName(e.target.value)}>
-              <option value="pathao">Pathao</option>
-              <option value="steadfast">Steadfast</option>
-              <option value="redx">RedX</option>
-            </select>
+          <div>
+            <p className="muted">
+              Not booked yet. If auto-booking is on (Courier Settings), this happens automatically when you confirm
+              the order — or book it manually now:
+            </p>
             <button className="btn" onClick={handleBookCourier} disabled={busy}>
-              Book Courier (simulated)
+              {busy ? "Booking..." : "Book with Steadfast"}
             </button>
           </div>
         )}

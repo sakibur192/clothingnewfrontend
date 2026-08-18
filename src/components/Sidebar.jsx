@@ -21,6 +21,7 @@ const allLinks = [
   { to: "/coupons", label: "Coupons", roles: ["owner", "admin", "manager"] },
   { to: "/storefront", label: "Storefront", roles: ["owner", "admin", "manager"] },
   { to: "/reports", label: "Reports", roles: ["owner", "admin", "manager"] },
+  { to: "/courier-settings", label: "Courier (Steadfast)", roles: ["owner", "admin"] },
   { to: "/staff", label: "Staff", roles: ["owner", "admin"] },
 ];
 

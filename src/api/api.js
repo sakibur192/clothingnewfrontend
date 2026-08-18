@@ -6,7 +6,7 @@
 // ============================================================
 
 // Change this if your backend runs on a different port/host.
-const BASE_URL = "https://clothingnewbackend.onrender.com";
+const BASE_URL = "http://localhost:5000";
 
 function getToken() {
   return localStorage.getItem("token");
@@ -213,6 +213,26 @@ export function updateCourierStatus(id, status) {
     method: "PUT",
     body: JSON.stringify({ status }),
   });
+}
+
+export function syncCourierStatus(id) {
+  return request(`/courier/${id}/sync`, { method: "POST" });
+}
+
+export function getCourierCredentials() {
+  return request("/courier/credentials");
+}
+
+export function saveCourierCredentials(payload) {
+  return request("/courier/credentials", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function testCourierConnection() {
+  return request("/courier/credentials/test", { method: "POST" });
+}
+
+export function removeCourierCredentials() {
+  return request("/courier/credentials", { method: "DELETE" });
 }
 
 // ---------------- WAREHOUSES ----------------

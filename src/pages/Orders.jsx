@@ -11,6 +11,7 @@ const STATUSES = ["pending", "confirmed", "packed", "shipped", "delivered", "can
 export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
   function loadOrders() {
@@ -25,8 +26,15 @@ export default function Orders() {
   }, []);
 
   async function handleStatusChange(orderId, status) {
+    setError("");
+    setMessage("");
     try {
-      await updateOrderStatus(orderId, status);
+      const result = await updateOrderStatus(orderId, status);
+      if (result.courierWarning) {
+        setMessage(result.courierWarning);
+      } else if (result.courierBooking) {
+        setMessage(`Order confirmed and automatically booked with Steadfast (tracking: ${result.courierBooking.tracking_code}).`);
+      }
       loadOrders();
     } catch (err) {
       setError(err.message);
@@ -43,6 +51,7 @@ export default function Orders() {
       </div>
 
       {error && <p className="error-text">{error}</p>}
+      {message && <p className="muted">{message}</p>}
 
       <div className="card">
         {loading ? (
